@@ -1,10 +1,10 @@
 # 🦴 Bones Modules
 
-🔧 Modules for Hikka & Heroku telegram userbor
+🔧 Modules for Hikka & Heroku telegram userbot
 
 [![Hikka](https://img.shields.io/badge/Hikka-UserBot-blue?style=for-the-badge&logo=telegram)](https://github.com/hikariatama/Hikka)
 [![Heroku](https://img.shields.io/badge/Heroku-Hosting-purple?style=for-the-badge&logo=heroku)](https://www.heroku.com)
-[![Python](https://img.shields.io/badge/Python-v3-yellow?style=for-the-badge&logo=python)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-gray?style=for-the-badge&logo=python)](https://www.python.org/)
 [![UserBot](https://img.shields.io/badge/UserBot-Hikka-orange?style=for-the-badge&logo=telegram)](https://github.com/hikariatama/Hikka)
 
 ---
