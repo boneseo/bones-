@@ -16,25 +16,22 @@
 
 ## 📦 Модули
 
-- **🕐 FancyClock** — отображение времени в нике с красивыми стилями
-- *Больше модулей в разработке...*
-
----
-
-## 🚀 Быстрый старт
-
+**FancyClock**
 ```
-.install boneseo/bones-
+.dlm https://raw.githubusercontent.com/boneseo/bones-/main/FancyClock.py
 ```
 
-Или добавьте репозиторий вручную в конфиг Hikka.
+**Fake Geo**
+```
+.dlm https://raw.githubusercontent.com/boneseo/bones-/main/FakeGeo.py
+```
 
 ---
 
 ## 🔗 Ссылки
 
-- **Автор:** [@bmodules](https://t.me/bmodules)
-- **GitHub:** [boneseo/bones-](https://github.com/boneseo/bones-)
+- **Автор:** [@ewefa](https://t.me/ewefa)
+- **Репозиторий:** [boneseo/bones-](https://github.com/boneseo/bones-)
 
 ---
 
