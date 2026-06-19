@@ -62,7 +62,7 @@ class SaveOnceMod(loader.Module):
             f"{self.FIRE} Время [{msg_time} МСК]"
         )
 
-        first_line_len = self.FIRE_LEN + len(f" Сообщение от [{name}]\n")
+        first_line_len = self.FIRE_LEN + len(f" Сообщение от [{name}]\n".encode("utf-16-le")) // 2
 
         entities = [
             MessageEntityCustomEmoji(
@@ -120,7 +120,7 @@ class SaveOnceMod(loader.Module):
                     document_id=5217769366329789092,
                 ),
                 MessageEntityCustomEmoji(
-                    offset=len(prefix),
+                    offset=len(prefix.encode("utf-16-le")) // 2,
                     length=self.FIRE_LEN,
                     document_id=5440660757194744323,
                 ),
