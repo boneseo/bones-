@@ -1,7 +1,6 @@
 # meta developer: @bmodules
 # scope: heroku_only
 
-import logging
 import os
 import tempfile
 from datetime import timezone, timedelta
@@ -10,19 +9,8 @@ from herokutl import events
 from herokutl.types import Message, MessageEntityCustomEmoji
 from .. import loader
 
-logger = logging.getLogger(__name__)
 
 MSK = timezone(timedelta(hours=3))
-
-FIRE = "🔥"
-FIRE_LEN = len(FIRE.encode("utf-16-le")) // 2
-
-MIME_TO_EXT = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "video/mp4": ".mp4",
-    "video/quicktime": ".mov",
-}
 
 
 @loader.tds
@@ -30,9 +18,10 @@ class SaveOnceMod(loader.Module):
     """Модуль для сохранения одноразовых фото/видео"""
 
     strings = {"name": "SaveOnce"}
+    FIRE = "🔥"
+    FIRE_LEN = 2
 
     def __init__(self):
-        super().__init__()
         self.config = loader.ModuleConfig(
             loader.ConfigValue(
                 "autosave",
@@ -41,15 +30,20 @@ class SaveOnceMod(loader.Module):
             )
         )
 
-    async def _save_media(self, reply, client):
-        mime = getattr(getattr(reply.media, "document", None), "mime_type", "image/jpeg")
-        ext = MIME_TO_EXT.get(mime, ".jpg")
+    def _is_once(self, media) -> bool:
+        return hasattr(media, "ttl_seconds") and media.ttl_seconds
 
-        tmp_path = os.path.join(tempfile.gettempdir(), f"saveonce_{reply.id}{ext}")
+    async def _save_media(self, reply, client):
+        is_video = hasattr(reply.media, "document")
+        ext = ".mp4" if is_video else ".jpg"
+
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+            tmp_path = tmp.name
+
         await reply.download_media(tmp_path)
 
         try:
-            sender = reply.sender or await reply.get_sender()
+            sender = await reply.get_sender()
             if sender:
                 name = (
                     f"{sender.first_name or ''} {sender.last_name or ''}".strip()
@@ -63,19 +57,22 @@ class SaveOnceMod(loader.Module):
 
         msg_time = reply.date.astimezone(MSK).strftime("%d.%m.%Y %H:%M")
 
-        first_line = f"{FIRE} Сообщение от [{name}]\n"
-        caption = f"{first_line}{FIRE} Время [{msg_time} МСК]"
-        first_line_len = len(first_line.encode("utf-16-le")) // 2
+        caption = (
+            f"{self.FIRE} Сообщение от [{name}]\n"
+            f"{self.FIRE} Время [{msg_time} МСК]"
+        )
+
+        first_line_len = self.FIRE_LEN + len(f" Сообщение от [{name}]\n")
 
         entities = [
             MessageEntityCustomEmoji(
                 offset=0,
-                length=FIRE_LEN,
+                length=self.FIRE_LEN,
                 document_id=5253780051471642059,
             ),
             MessageEntityCustomEmoji(
                 offset=first_line_len,
-                length=FIRE_LEN,
+                length=self.FIRE_LEN,
                 document_id=5255772095958229697,
             ),
         ]
@@ -94,13 +91,12 @@ class SaveOnceMod(loader.Module):
     async def nn(self, message: Message):
         """сохраняет одноразовое фото ответом на фото"""
         reply = await message.get_reply_message()
-
         await message.delete()
 
-        if not reply or not reply.media:
+        if not reply or not hasattr(reply, "media") or not reply.media:
             return
 
-        if not getattr(reply.media, "ttl_seconds", None):
+        if not self._is_once(reply.media):
             return
 
         try:
@@ -112,29 +108,29 @@ class SaveOnceMod(loader.Module):
     async def nlu(self, message: Message):
         """включить / выключить Автосохранение"""
         self.config["autosave"] = not self.config["autosave"]
+        enabled = self.config["autosave"]
 
-        if self.config["autosave"]:
-            prefix = f"{FIRE} Автосохранение включено\n\n> "
-            text = f"{prefix}{FIRE} Внимание модуль следит только в личных сообщениях"
-            prefix_len = len(prefix.encode("utf-16-le")) // 2
+        if enabled:
+            prefix = f"{self.FIRE} Автосохранение включено\n\n> "
+            text = f"{prefix}{self.FIRE} Внимание модуль следит только в личных сообщениях"
             entities = [
                 MessageEntityCustomEmoji(
                     offset=0,
-                    length=FIRE_LEN,
+                    length=self.FIRE_LEN,
                     document_id=5217769366329789092,
                 ),
                 MessageEntityCustomEmoji(
-                    offset=prefix_len,
-                    length=FIRE_LEN,
+                    offset=len(prefix),
+                    length=self.FIRE_LEN,
                     document_id=5440660757194744323,
                 ),
             ]
         else:
-            text = f"{FIRE} Автосохранение выключено"
+            text = f"{self.FIRE} Автосохранение выключено"
             entities = [
                 MessageEntityCustomEmoji(
                     offset=0,
-                    length=FIRE_LEN,
+                    length=self.FIRE_LEN,
                     document_id=5217769366329789092,
                 ),
             ]
@@ -147,18 +143,21 @@ class SaveOnceMod(loader.Module):
         )
         await message.delete()
 
-    @loader.raw_handler(events.NewMessage(incoming=True, func=lambda e: e.is_private))
+    @loader.raw_handler(events.NewMessage)
     async def watcher(self, message: Message):
         if not self.config["autosave"]:
             return
 
-        if not message.media:
+        if not getattr(message, "is_private", False):
             return
 
-        if not getattr(message.media, "ttl_seconds", None):
+        if not hasattr(message, "media") or not message.media:
+            return
+
+        if not self._is_once(message.media):
             return
 
         try:
             await self._save_media(message, message.client)
         except Exception:
-            logger.exception("SaveOnce watcher: не удалось сохранить медиа")
+            pass
