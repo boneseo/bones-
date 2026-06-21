@@ -13,6 +13,7 @@ DEFAULT_REPLY_TEXT = "🔥 Новый пост!"
 PREMIUM_EMOJI_ID = 5256079005731271025
 ERROR_EMOJI_ID = 5253526631221307799
 TOGGLE_EMOJI_ID = 5370905394476516106
+DELETE_EMOJI_ID = 5253952855185829086
 
 
 @loader.tds
@@ -90,6 +91,72 @@ class ChAutoReplyMod(loader.Module):
             ],
         )
         await message.delete()
+
+    def _find_channel_key(self, raw: str):
+        """Ищет ключ канала в self.channels по marked id, raw_id или ссылке/username."""
+        raw = raw.strip()
+        needle = raw.removeprefix("https://t.me/").removeprefix("t.me/").lstrip("@").lower()
+
+        if raw in self.channels:
+            return raw
+
+        for key, data in self.channels.items():
+            if str(data.get("raw_id")) == raw:
+                return key
+            link = data.get("link", "")
+            if link.lower().endswith(needle) and needle:
+                return key
+
+        return None
+
+    @loader.command()
+    async def chd(self, message: Message):
+        """удалить канал из списка: .chd username/id, без аргумента - сброс всех"""
+        args = message.raw_text.split(maxsplit=1)
+
+        if len(args) < 2 or not args[1].strip():
+            if not self.channels:
+                await self.client.send_message(message.peer_id, "💔Список каналов пуст!", reply_to=message.id, formatting_entities=self._emoji(ERROR_EMOJI_ID))
+                await message.delete()
+                return
+
+            await self.inline.form(
+                text="🔥 Вы не указали юзернейм телеграм канала, будут сброшены все телеграм каналы?\n\nВы согласны?",
+                reply_markup=[[
+                    {"text": "✅ Подтвердить", "callback": self._cb_confirm_reset_all, "style": "danger"},
+                    {"text": "❌ Отмена", "callback": self._cb_cancel_reset_all, "style": "primary"},
+                ]],
+                message=message,
+            )
+            await message.delete()
+            return
+
+        raw = args[1].strip()
+        key = self._find_channel_key(raw)
+
+        if key is None:
+            await self.client.send_message(message.peer_id, f"💔{raw} — канал не найден в списке!", reply_to=message.id, formatting_entities=self._emoji(ERROR_EMOJI_ID))
+            await message.delete()
+            return
+
+        data = self.channels.pop(key)
+        self._save_channels()
+
+        display_id = data.get("raw_id", key)
+        text = f"🔥{display_id} канал был удален из списка"
+        await self.client.send_message(
+            message.peer_id, text, reply_to=message.id,
+            formatting_entities=self._emoji(DELETE_EMOJI_ID),
+        )
+        await message.delete()
+
+    async def _cb_confirm_reset_all(self, call):
+        self.channels.clear()
+        self._save_channels()
+        await call.edit("🔥 Все телеграм каналы были сброшены", reply_markup=None)
+
+    async def _cb_cancel_reset_all(self, call):
+        await call.edit("Отменено, каналы не тронуты", reply_markup=None)
 
     @loader.command()
     async def che(self, message: Message):
